@@ -1,0 +1,4 @@
+Build.PL
+lib/HTML/TokeParserExt.pm
+lib/WWW/MechanizeExt.pm
+MANIFEST			This list of files

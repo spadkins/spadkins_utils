@@ -1,0 +1,126 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+use App::Options (
+   options => [qw(
+       base logdir maxtries verbose
+   )],
+   option => {
+       base => {
+           description => "Set a base URL that defines relative URL's in the test file",
+       },
+       logdir => {
+           description => "Set a log directory in which to write a journal of requests, responses, and page information (1='log')",
+       },
+       maxtries => {
+           description => "Set the number of retries we should perform if we fail to get a response",
+           default => 1,
+       },
+       agent => {
+           description => "User agent [Windows IE 6,Windows Mozilla,Mac Safari,Mac Mozilla,Linux Mozilla,Linux Konqueror, or a full User Agent string]",
+           default => "Windows Mozilla",
+       },
+       verbose => {
+           default => 1,
+       },
+   },
+);
+
+$SIG{__WARN__} = sub {
+   return if ($_[0] =~ /Wide character in print/);
+   warn @_;
+};
+
+use WWW::Selenium::Simple;
+
+{
+    my $selenium = WWW::Selenium::Simple->new();
+    my $ua       = $selenium->user_agent();
+    my (@test_files);
+    if (@ARGV > 0) {
+        @test_files = @ARGV;
+    }
+    else {
+        my $cmd_base = $0;
+        $cmd_base =~ s/\.[a-zA-Z0-9]+$//;
+        if (-f "$cmd_base.html") {
+            @test_files = ("$cmd_base.html");
+        }
+        elsif (-f "$cmd_base.sel") {
+            @test_files = ("$cmd_base.sel");
+        }
+        else {
+            warn "Error: Could not find test files\n";
+            warn "Usage: $0 <files>\n";
+            warn "   or: $0         (where $cmd_base.html or $cmd_base.sel exists)\n";
+            exit(1);
+        }
+    }
+    foreach my $file (@test_files) {
+        $selenium->run_test_file($ua, $file, \%App::options);
+    }
+}
+
+__END__
+
+use LWP::UserAgent;
+use HTTP::Request;
+sub post {
+    my ($ua, $url, $request_xml) = @_;
+    my $verbose = $App::options{verbose};
+
+    ##################################################################
+    # Create a REQUEST
+    ##################################################################
+    my $req = HTTP::Request->new(POST => $url);
+
+    $req->content_type("application/soap+xml; charset=utf-8");  # set Content-type to "application/soap+xml"
+    $req->content_length(length($request_xml));                 # set Content-length (REQUIRED)
+    $req->content($request_xml);                                # assign the content
+
+    print "REQUEST:\n", $req->as_string if ($verbose >= 2);
+
+    ##################################################################
+    # Send REQUEST and get a RESPONSE
+    ##################################################################
+    my $res = $ua->request($req);  # handles Basic Authentication/SSL
+    my $response_xml = $res->content();
+
+    print $res->status_line(), "\n" if ($verbose);
+    if ($verbose >= 2) {
+        print "RESPONSE:\n", $res->as_string;
+        #if ($res->is_success()) {
+        #    print $response_xml;
+        #}
+    }
+
+    return($response_xml);
+}
+
+#################################
+sub write_file {
+#################################
+    my ($filename, @data) = @_;
+
+    open FILE, "> $filename" or die (print "[Error:CantOpen:VersionOne] $filename, $!\n");
+    print FILE @data;
+    close FILE;
+
+    if (! -f $filename){
+        print "[Error:CantOpen:VersionOne] $filename does not exist\n";
+        return;
+    }
+    if (-z $filename){
+        print "[Error:CantOpen:VersionOne] $filename has zero size\n";
+        return;
+    }
+
+    #my $gzip_status = `gzip $filename 2>&1`;
+    #if ($gzip_status ne "") {
+    #    chomp $gzip_status;
+    #    print "[Error:CantOpen:VersionOne] $gzip_status\n";
+    #    return;
+    #}
+}
+
