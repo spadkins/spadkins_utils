@@ -1,3 +1,6 @@
 
 This is a project to contain other small miscellaneous projects.
 
+xd         - hex dump         - This does the same basic thing as "od" ("octal dump") but I like the formats better.
+mysqldumpf - mysqldump filter - An output filter for mysqldump output that inserts a newline after each row of data
+
